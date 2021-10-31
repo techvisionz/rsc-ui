@@ -1,2 +1,2 @@
 # rsc-ui
-Rest Shell Commander - UI
+React JS based UI for Rest Shell Commander using RSC rest APIs.
