@@ -20,6 +20,7 @@
     "addhost":"Add Host",
     "save":"Save",
     "search":"Search",
+    "searchcommand":"Search Command",
     "clear":"Clear",
     "error_while_saving_service":"Error while saving service info",
     "error_while_search":"Error while performing search"

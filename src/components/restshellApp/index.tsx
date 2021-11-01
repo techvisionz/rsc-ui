@@ -588,7 +588,7 @@ class RestShellApp extends Component<any, any> {
                                                         <div className="row">
                                                             <div className="col-sm-6">
                                                                 <div className="form-group">
-                                                                    <label>{t("hosts")}</label>
+                                                                    <label>{t("searchcommand")}</label>
                                                                     <select className="form-control" name="searchCommand" id="searchCommand">
                                                                         <option>{t("grep")}</option>
                                                                         <option>{t("awk")}</option>
