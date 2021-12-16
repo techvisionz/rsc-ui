@@ -16,7 +16,7 @@ const resources = {
   };
 
 i18n
-   .use(LanguageDetector) // passes i18n down to react-i18next
+  //  .use(LanguageDetector) // passes i18n down to react-i18next
   .use(initReactI18next)
   .init({
     // the translations

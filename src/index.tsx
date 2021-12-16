@@ -5,6 +5,8 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import './i18'
 
+console.warn = function() {}
+
 ReactDOM.render(
   <App />,
   document.getElementById('root')

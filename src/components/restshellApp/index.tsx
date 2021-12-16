@@ -1,13 +1,21 @@
 import React, { Component, createRef } from "react";
 import { withTranslation } from "react-i18next";
-import { doLogout, getServices, updateService, createService, search } from "../../backend/restshellbk";
+import {
+    doLogout, getServices, updateService, createService, search, getNodes,
+    updateNode, createLogInfo, deleteLogInfo, deleteNodeInfo, addNodeInfo
+} from "../../backend/restshellbk";
 import { Alert } from "react-bootstrap";
 import 'flag-icon-css/css/flag-icons.min.css';
 import i18n from "i18next";
+import EditNode from "../nodes/editNode";
+import CreateNode from "../nodes/createNode";
+import moment from 'moment';
 
 const EDIT_SERVICE = "EDIT_SERVICE";
 const CREATE_SERVICE = "CREATE_SERVICE";
 const USE_SERVICE = "USE_SERVICE";
+const EDIT_NODE = "EDIT_NODE";
+const CREATE_NODE = "CREATE_NODE";
 
 
 var MySelf: RestShellApp;
@@ -22,7 +30,9 @@ class RestShellApp extends Component<any, any> {
         this.state = {
             loggedIn: false,
             services: [],
+            nodes: [],
             service: {},
+            node: {},
             action: "",
             showError: false,
             showSuccess: false,
@@ -93,7 +103,24 @@ class RestShellApp extends Component<any, any> {
     }
 
     componentDidMount() {
-        this.populateServices();
+        this.populateData();
+    }
+
+    populateData() {
+        MySelf.populateServices();
+        MySelf.populateNodes();
+    }
+
+    async populateNodes() {
+        await getNodes().then((response: any) => {
+            if (response && response.data) {
+                MySelf.setState({ nodes: response.data });
+            }
+        }).catch(async (error) => {
+            console.log(error);
+            await doLogout();
+            MySelf.props.checkLogin();
+        });
     }
 
     async populateServices() {
@@ -108,17 +135,37 @@ class RestShellApp extends Component<any, any> {
         });
     }
 
+    reloadHome() {
+        MySelf.populateData();
+        MySelf.selectHome();
+    }
+
 
     async useService() {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         await MySelf.setState({ action: "" });
         await MySelf.setState({ action: USE_SERVICE });
+
+        // @ts-ignore
+        $('#logDate').daterangepicker({
+            timePicker: true,
+            singleDatePicker: true,
+            locale: {
+                format: 'DD-MM-YYYY hh:mm'
+            }
+        });
     }
 
     async createServiceAction() {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         await MySelf.setState({ action: "" });
         await MySelf.setState({ action: CREATE_SERVICE });
+    }
+
+    async createNodeAction() {
+        await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
+        await MySelf.setState({ action: "" });
+        await MySelf.setState({ action: CREATE_NODE });
     }
 
     async selectService(serviceId: any) {
@@ -128,8 +175,15 @@ class RestShellApp extends Component<any, any> {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
     }
 
-    async selectHome(e: any) {
-        e.preventDefault();
+    async selectNode(nodeId: any) {
+        await MySelf.setState({ action: "" });
+        await MySelf.setState({ node: this.state.nodes.find((item: any) => item.id == nodeId) });
+        await MySelf.setState({ action: EDIT_NODE });
+        await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
+    }
+
+    async selectHome() {
+        //e.preventDefault();
         MySelf.setState({ action: "" });
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
     }
@@ -141,31 +195,31 @@ class RestShellApp extends Component<any, any> {
         MySelf.props.checkLogin();
     }
 
-    async naddHost(e: any) {
+    async naddNode(e: any) {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         var form: any = MySelf.createServiceForm.current;
-        var options = form.nserviceHosts.options;
+        var options = form.nserviceNodes.options;
 
-        var newHost = form.nnewHost.value;
+        var newNode = form.nnewNode.value;
 
         for (var i = 0, iLen = options.length; i < iLen; i++) {
             var opt = options[i];
 
-            if (opt.value == newHost) {
+            if (opt.value == newNode) {
                 return;
             }
         }
 
-        if (newHost && newHost.length > 0) {
-            var newOpt = new Option(newHost, newHost);
-            form.nserviceHosts.options.add(newOpt);
+        if (newNode && newNode.length > 0) {
+            var newOpt = new Option(newNode, newNode);
+            form.nserviceNodes.options.add(newOpt);
         }
     }
 
-    async nremoveHost(e: any) {
+    async nremoveNode(e: any) {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         var form: any = MySelf.createServiceForm.current;
-        var options = form.nserviceHosts.options;
+        var options = form.nserviceNodes.options;
         for (var i = 0, iLen = options.length; i < iLen; i++) {
             var opt = options[i];
 
@@ -175,62 +229,88 @@ class RestShellApp extends Component<any, any> {
         }
     }
 
-    async addHost(e: any) {
+    async addNode(e: any) {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         var form: any = MySelf.editServiceForm.current;
-        var options = form.serviceHosts.options;
+        var options = form.serviceNodes.options;
+        var allNodes = MySelf.state.nodes;
+        var newNode = form.newNode.value;
 
-        var newHost = form.newHost.value;
+        var selectedNode = allNodes.find((item: any) => item.name === newNode);
 
-        for (var i = 0, iLen = options.length; i < iLen; i++) {
-            var opt = options[i];
+        if (selectedNode) {
+            await addNodeInfo({ id: selectedNode.id }, MySelf.state.service.id).then((response: any) => {
+                if (response && response.data) {
+                }
+            }).catch(async (error) => {
+                console.log(error);
+            });
 
-            if (opt.value == newHost) {
-                return;
+            for (var i = 0, iLen = options.length; i < iLen; i++) {
+                var opt = options[i];
+
+                if (opt.value == newNode) {
+                    return;
+                }
+            }
+
+            if (newNode && newNode.length > 0) {
+                var newOpt = new Option(newNode, newNode);
+                form.serviceNodes.options.add(newOpt);
             }
         }
 
-        if (newHost && newHost.length > 0) {
-            var newOpt = new Option(newHost, newHost);
-            form.serviceHosts.options.add(newOpt);
-        }
     }
 
-    async removeHost(e: any) {
+    async removeNode(e: any) {
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         var form: any = MySelf.editServiceForm.current;
-        var options = form.serviceHosts.options;
+        var options = form.serviceNodes.options;
+        var allNodes = MySelf.state.nodes;
+
         for (var i = 0, iLen = options.length; i < iLen; i++) {
             var opt = options[i];
 
             if (opt && opt.selected) {
-                opt.remove();
+                var selectedNode = allNodes.find((item: any) => item.name === options[i].value);
+                if (selectedNode) {
+                    await deleteNodeInfo({ id: selectedNode.id }, MySelf.state.service.id).then((response: any) => {
+                        if (response && response.data) {
+                        }
+                    }).catch(async (error) => {
+                        console.log(error);
+                    });
+
+                    opt.remove();
+                }
             }
         }
     }
 
     async createService(e: any) {
         var form: any = MySelf.createServiceForm.current;
-        var hosts: any = [];
+        var nodes: any = [];
+        var allNodes = MySelf.state.nodes;
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         const { t } = MySelf.props;
 
-        var options = form.nserviceHosts.options;
+        var options = form.nserviceNodes.options;
         for (var i = 0, iLen = options.length; i < iLen; i++) {
-            hosts.push(options[i].value);
+            var selectedNode = allNodes.find((item: any) => item.name === options[i].value);
+
+            if (selectedNode)
+                nodes.push({ id: selectedNode.id });
         }
 
         var service = {
             name: form.nserviceName.value,
-            logPath: form.nlogPath.value,
-            archiveLogPath: form.narchiveLogPath.value,
-            logFileName: form.nlogFileName.value,
-            serviceHosts: hosts,
+            nodesInfo: nodes,
         }
 
         createService(service).then(async (response: any) => {
             if (response && response.data) {
                 await MySelf.setState({ showSuccess: true, showError: false, rsMessage: t('success_message') });
+                this.reloadHome();
             }
         }).catch(async (error) => {
             console.log(error);
@@ -242,22 +322,24 @@ class RestShellApp extends Component<any, any> {
 
     async saveService(e: any) {
         var form: any = MySelf.editServiceForm.current;
-        var hosts: any = [];
+        var nodes: any = [];
+        var allNodes = MySelf.state.nodes;
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         const { t } = MySelf.props;
 
-        var options = form.serviceHosts.options;
+        var options = form.serviceNodes.options;
         for (var i = 0, iLen = options.length; i < iLen; i++) {
-            hosts.push(options[i].value);
+
+            var selectedNode = allNodes.find((item: any) => item.name === options[i].value);
+
+            if (selectedNode)
+                nodes.push({ id: selectedNode.id });
         }
 
         var service = {
             id: MySelf.state.service.id,
             name: form.serviceName.value,
-            logPath: form.logPath.value,
-            archiveLogPath: form.archiveLogPath.value,
-            logFileName: form.logFileName.value,
-            serviceHosts: hosts,
+            nodesInfo: nodes,
         }
 
         updateService(service).then(async (response: any) => {
@@ -265,7 +347,7 @@ class RestShellApp extends Component<any, any> {
                 await MySelf.setState({ showSuccess: true, showError: false, rsMessage: t('success_message') });
             }
 
-            this.populateServices();
+            MySelf.reloadHome();
         }).catch(async (error) => {
             console.log(error);
             await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_saving_service') });
@@ -274,35 +356,59 @@ class RestShellApp extends Component<any, any> {
 
     async searchService(e: any) {
         var form: any = MySelf.searchForm.current;
-        var hosts: any = [];
+        var allNodes = MySelf.state.nodes;
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "", hideLoading: false });
         const { t } = MySelf.props;
+        var options = form.selectedNodes.options;
 
-        var searchData = {
-            "searchCommand": form.searchCommand.value,
-            "linesAfter": form.linesAfter.value,
-            "linesBefore": form.linesBefore.value,
-            "searchString": form.searchString.value,
-            "filePath": MySelf.state.service.logPath,
-            "fileName": MySelf.state.service.logFileName,
-            "timeoutSeconds": 5
+        if (!options || !form.searchString.value || form.searchString.value.length <1) {
+            await MySelf.setState({ hideLoading: true, showSuccess: false, showError: true, rsMessage: t('please_select_required_params') });
+            return;
         }
 
-        var options = form.selectedHosts.options;
         for (var i = 0, iLen = options.length; i < iLen; i++) {
             var opt = options[i];
 
             if (opt && opt.selected) {
-                await search(opt.value, searchData).then(async (response: any) => {
-                    if (response && response.data) {
 
-                        form.searchResults.value += "======== Data From [" + opt.value + "] ==========\n"
-                        form.searchResults.value += response.data.result;
+                var selectedNode = allNodes.find((item: any) => item.name === opt.value);
+
+                if (selectedNode) {
+
+                    var selectedLogInfo = selectedNode.logsInfo.find((item: any) => item.name === form.logInfo.value);
+
+                    if (selectedLogInfo) {
+                        var searchData = {
+                            "searchCommand": form.searchCommand.value,
+                            "searchString": form.searchString.value,
+                            "logPath": selectedLogInfo.logPath,
+                            "archiveLogPath": selectedLogInfo.archiveLogPath,
+                            "logFileName": selectedLogInfo.logFileName,
+                            "fileDatePattern": selectedLogInfo.fileDatePattern,
+                            "logFileNamePattern": selectedLogInfo.logFileNamePattern,
+                            "logFileNameExt": selectedLogInfo.logFileNameExt,
+                            "rollingType": selectedLogInfo.rollingType,
+                            "fileDate": form.logDate.value,
+                            "searchInArchive": form.searchInArchive.value,
+                            "includePattern": form.includePattern.value,
+                            "linesAfter": form.linesAfter.value,
+                            "linesBefore": form.linesBefore.value,
+                            "timeoutSeconds": form.timeout.value
+                        }
+
+                        await search(selectedNode.clientUrl, searchData).then(async (response: any) => {
+                            if (response && response.data) {
+
+                                form.searchResults.value += "======== Data From [" + opt.value + "] ==========\n"
+                                form.searchResults.value += response.data.result;
+                            }
+                        }).catch(async (error) => {
+                            console.log(error);
+                            await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_search') });
+                        });
                     }
-                }).catch(async (error) => {
-                    console.log(error);
-                    await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_search') });
-                });
+                }
+
             }
         }
         await MySelf.setState({ hideLoading: true });
@@ -310,12 +416,61 @@ class RestShellApp extends Component<any, any> {
 
     async clearResults(e: any) {
         var form: any = MySelf.searchForm.current;
-        var hosts: any = [];
+        var nodes: any = [];
         await MySelf.setState({ showSuccess: false, showError: false, rsMessage: "" });
         const { t } = MySelf.props;
 
         form.searchResults.value = "";
 
+    }
+
+    async deleteLogInfo(logInfoId: any) {
+        const { t } = MySelf.props;
+        if (MySelf.state.node) {
+            var node = MySelf.state.node;
+            await deleteLogInfo({ id: logInfoId }, node.id).then(async (response: any) => {
+                if (response && response.data) {
+                    await MySelf.populateNodes();
+                    await MySelf.selectNode(node.id);
+                }
+            }).catch(async (error) => {
+                console.log(error);
+                await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_update') });
+            });
+        }
+    }
+
+    async addLogInfo(data: any) {
+        const { t } = MySelf.props;
+        if (MySelf.state.node) {
+            var node = MySelf.state.node;
+            await createLogInfo(data, node.id).then(async (response: any) => {
+                if (response && response.data) {
+                    await MySelf.populateNodes();
+                    await MySelf.selectNode(node.id);
+                }
+            }).catch(async (error) => {
+                console.log(error);
+                await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_update') });
+            });
+        }
+    }
+
+    async saveNode(name: any, url: any) {
+        const { t } = MySelf.props;
+        var node = MySelf.state.node;
+        node.name = name;
+        node.clientUrl = url;
+        await updateNode(node).then(async (response: any) => {
+            if (response && response.data) {
+                // await MySelf.populateNodes();
+                // await MySelf.selectNode(node.id);
+                MySelf.reloadHome();
+            }
+        }).catch(async (error) => {
+            console.log(error);
+            await MySelf.setState({ showSuccess: false, showError: true, rsMessage: t('error_while_update') });
+        });
     }
 
     render() {
@@ -335,6 +490,9 @@ class RestShellApp extends Component<any, any> {
                         </li>
                         <li className="nav-item d-none d-sm-inline-block">
                             <a href="#" className="nav-link" onClick={this.createServiceAction}>{t("createservice")}</a>
+                        </li>
+                        <li className="nav-item d-none d-sm-inline-block">
+                            <a href="#" className="nav-link" onClick={this.createNodeAction}>{t("createnode")}</a>
                         </li>
                         <li className="nav-item d-none d-sm-inline-block">
                             <a href="#" onClick={this.doLogout} className="nav-link">Logout</a>
@@ -371,7 +529,7 @@ class RestShellApp extends Component<any, any> {
 
 
                 <aside className="main-sidebar sidebar-dark-primary elevation-4">
-                    <a href="../../index3.html" className="brand-link">
+                    <a href="#" onClick={this.selectHome} className="brand-link">
                         {/* <img src="../../dist/img/AdminLTELogo.png" alt="AdminLTE Logo" className="brand-image img-circle elevation-3" style={{opacity:"0.8"}} /> */}
                         <span className="brand-text font-weight-light">{t('restshell')}</span>
                     </a>
@@ -401,20 +559,56 @@ class RestShellApp extends Component<any, any> {
 
                         <nav className="mt-2">
                             <ul className="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                                {!this.state.services ? "" :
-                                    this.state.services.map((service: any) => {
-                                        return (
-                                            <li className="nav-item" key={service.id} onClick={() => this.selectService(service.id)}>
-                                                <a href="#" className="nav-link">
-                                                    <i className="nav-icon fas fa-copy"></i>
-                                                    <p>
-                                                        {service.name}
-                                                    </p>
-                                                </a>
-                                            </li>
-                                        )
-                                    })
-                                }
+                                <li className="nav-item">
+                                    <a href="#" className="nav-link">
+                                        <i className="nav-icon fas fa-table"></i>
+                                        <p>
+                                            Services
+                                            <i className="fas fa-angle-left right"></i>
+                                        </p>
+                                    </a>
+                                    <ul className="nav nav-treeview">
+                                        {!this.state.services ? "" :
+                                            this.state.services.map((service: any) => {
+                                                return (
+                                                    <li className="nav-item" key={service.id} onClick={() => this.selectService(service.id)}>
+                                                        <a href="#" className="nav-link">
+                                                            <i className="far fa-columns nav-icon"></i>
+                                                            <p>
+                                                                {service.name}
+                                                            </p>
+                                                        </a>
+                                                    </li>
+                                                )
+                                            })
+                                        }
+                                    </ul>
+                                </li>
+                                <li className="nav-item">
+                                    <a href="#" className="nav-link">
+                                        <i className="nav-icon fas fa-copy"></i>
+                                        <p>
+                                            Nodes
+                                            <i className="fas fa-angle-left right"></i>
+                                        </p>
+                                    </a>
+                                    <ul className="nav nav-treeview">
+                                        {!this.state.nodes ? "" :
+                                            this.state.nodes.map((node: any) => {
+                                                return (
+                                                    <li className="nav-item" key={node.id} onClick={() => this.selectNode(node.id)}>
+                                                        <a href="#" className="nav-link">
+                                                            <i className="far fa-circle nav-icon"></i>
+                                                            <p>
+                                                                {node.name}
+                                                            </p>
+                                                        </a>
+                                                    </li>
+                                                )
+                                            })
+                                        }
+                                    </ul>
+                                </li>
                             </ul>
                         </nav>
 
@@ -455,10 +649,17 @@ class RestShellApp extends Component<any, any> {
                                                 <div className="row">
                                                     <div className="col-sm-6">
                                                         <div className="form-group">
-                                                            <label>{t("host")}</label>
-                                                            <input type="text" name="newHost" id="newHost" className="form-control" placeholder={t("newhost")} />
+                                                            <label>{t("node")}</label>
+                                                            <select className="form-control" name="newNode" id="newNode">
+                                                                {this.state.nodes.map((node: any) => {
+                                                                    return (
+                                                                        <option key={node.id}>{node.name}</option>
+                                                                    )
+                                                                })
+                                                                }
+                                                            </select>
                                                             <div className="btn-group w-25">
-                                                                <button type="button" className="btn btn-success" onClick={() => this.addHost(this)}>{t('addhost')}</button>
+                                                                <button type="button" className="btn btn-success" onClick={() => this.addNode(this)}>{t('addNode')}</button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -466,42 +667,18 @@ class RestShellApp extends Component<any, any> {
                                                 <div className="row">
                                                     <div className="col-sm-6">
                                                         <div className="form-group">
-                                                            <label>{t("hosts")}</label>
-                                                            <select multiple={true} className="form-control" name="serviceHosts" id="serviceHosts">
-                                                                {this.state.service.serviceHosts.map((host: any) => {
+                                                            <label>{t("nodes")}</label>
+                                                            <select multiple={true} className="form-control" name="serviceNodes" id="serviceNodes">
+                                                                {this.state.service.nodesInfo.map((node: any) => {
                                                                     return (
-                                                                        <option key={host}>{host}</option>
+                                                                        <option key={node.id}>{node.name}</option>
                                                                     )
                                                                 })
                                                                 }
                                                             </select>
                                                             <div className="btn-group w-50">
-                                                                <button type="button" className="btn btn-danger" onClick={() => this.removeHost(this)}>{t('removehost')}</button>
+                                                                <button type="button" className="btn btn-danger" onClick={() => this.removeNode(this)}>{t('removenode')}</button>
                                                             </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="row">
-                                                    <div className="col-sm-6">
-                                                        <div className="form-group">
-                                                            <label>{t("logpath")}</label>
-                                                            <input type="text" name="logPath" id="logPath" className="form-control" defaultValue={this.state.service.logPath} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="row">
-                                                    <div className="col-sm-6">
-                                                        <div className="form-group">
-                                                            <label>{t("archivelogpath")}</label>
-                                                            <input type="text" name="archiveLogPath" id="archiveLogPath" className="form-control" defaultValue={this.state.service.archiveLogPath} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="row">
-                                                    <div className="col-sm-6">
-                                                        <div className="form-group">
-                                                            <label>{t("logfilename")}</label>
-                                                            <input type="text" name="logFileName" id="logFileName" className="form-control" defaultValue={this.state.service.logFileName} />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -529,22 +706,18 @@ class RestShellApp extends Component<any, any> {
                                                     <div className="row">
                                                         <div className="col-sm-6">
                                                             <div className="form-group">
-                                                                <label>{t("host")}</label>
-                                                                <input type="text" name="nnewHost" id="nnewHost" className="form-control" placeholder={t("newhost")} />
-                                                                <div className="btn-group w-25">
-                                                                    <button type="button" className="btn btn-success" onClick={() => this.naddHost(this)}>{t('addhost')}</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="row">
-                                                        <div className="col-sm-6">
-                                                            <div className="form-group">
-                                                                <label>{t("hosts")}</label>
-                                                                <select multiple={true} className="form-control" name="nserviceHosts" id="nserviceHosts">
+                                                                <label>{t("node")}</label>
+                                                                {/* <input type="text" name="nnewNode" id="nnewNode" className="form-control" placeholder={t("newNode")} /> */}
+                                                                <select className="form-control" name="nnewNode" id="nnewNode">
+                                                                    {this.state.nodes.map((node: any) => {
+                                                                        return (
+                                                                            <option key={node.id}>{node.name}</option>
+                                                                        )
+                                                                    })
+                                                                    }
                                                                 </select>
                                                                 <div className="btn-group w-25">
-                                                                    <button type="button" className="btn btn-danger" onClick={() => this.nremoveHost(this)}>{t('removehost')}</button>
+                                                                    <button type="button" className="btn btn-success" onClick={() => this.naddNode(this)}>{t('addNode')}</button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -552,24 +725,12 @@ class RestShellApp extends Component<any, any> {
                                                     <div className="row">
                                                         <div className="col-sm-6">
                                                             <div className="form-group">
-                                                                <label>{t("logpath")}</label>
-                                                                <input type="text" name="nlogPath" id="nlogPath" className="form-control" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="row">
-                                                        <div className="col-sm-6">
-                                                            <div className="form-group">
-                                                                <label>{t("archivelogpath")}</label>
-                                                                <input type="text" name="narchiveLogPath" id="narchiveLogPath" className="form-control" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="row">
-                                                        <div className="col-sm-6">
-                                                            <div className="form-group">
-                                                                <label>{t("logfilename")}</label>
-                                                                <input type="text" name="nlogFileName" id="nlogFileName" className="form-control" />
+                                                                <label>{t("nodes")}</label>
+                                                                <select multiple={true} className="form-control" name="nserviceNodes" id="nserviceNodes">
+                                                                </select>
+                                                                <div className="btn-group w-50">
+                                                                    <button type="button" className="btn btn-danger" onClick={() => this.nremoveNode(this)}>{t('removenode')}</button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -601,18 +762,33 @@ class RestShellApp extends Component<any, any> {
                                                             <div className="col-sm-6">
                                                                 <div className="form-group">
                                                                     <label>{t("searchstring")}</label>
-                                                                    <input type="text" name="searchString" id="searchString" className="form-control" />
+                                                                    <input type="text" name="searchString" id="searchString" className="form-control" required />
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div className="row">
                                                             <div className="col-sm-6">
                                                                 <div className="form-group">
-                                                                    <label>{t("hosts")}</label>
-                                                                    <select multiple={true} className="form-control" name="selectedHosts" id="selectedHosts">
-                                                                        {this.state.service.serviceHosts.map((host: any) => {
+                                                                    <label>{t("nodes")}</label>
+                                                                    <select multiple={true} className="form-control" name="selectedNodes" id="selectedNodes" required>
+                                                                        {this.state.service.nodesInfo.map((node: any) => {
                                                                             return (
-                                                                                <option key={host}>{host}</option>
+                                                                                <option key={node.id}>{node.name}</option>
+                                                                            )
+                                                                        })
+                                                                        }
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="row">
+                                                            <div className="col-sm-6">
+                                                                <div className="form-group">
+                                                                    <label>{t("loginfo")}</label>
+                                                                    <select className="form-control" name="logInfo" id="logInfo">
+                                                                        {this.state.service.nodesInfo[0] && this.state.service.nodesInfo[0].logsInfo.map((logInfo: any) => {
+                                                                            return (
+                                                                                <option key={logInfo.id}>{logInfo.name}</option>
                                                                             )
                                                                         })
                                                                         }
@@ -636,6 +812,46 @@ class RestShellApp extends Component<any, any> {
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div className="row">
+                                                            <div className="col-sm-6">
+                                                                <div className="form-group">
+                                                                    <label>{t("timeout")}</label>
+                                                                    <input type="text" name="timeout" id="timeout" className="form-control" defaultValue={10} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="row">
+                                                            <div className="col-sm-6">
+                                                                <div className="form-group">
+                                                                    <label>{t("includePattern")}</label>
+                                                                    <select defaultValue={1} className="form-control" name="includePattern" id="includePattern">
+                                                                        <option key="False" value="False">No</option>
+                                                                        <option key="True" value="True">Yes</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="row">
+                                                            <div className="col-sm-6">
+                                                                <div className="form-group">
+                                                                    <label>{t("logDate")}</label>
+                                                                    <div className="input-group date">
+                                                                        <input type="text" className="form-control float-right" name="logDate" id="logDate" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="row">
+                                                            <div className="col-sm-6">
+                                                                <div className="form-group">
+                                                                    <label>{t("searchInArchive")}</label>
+                                                                    <select defaultValue={1} className="form-control" name="searchInArchive" id="searchInArchive">
+                                                                        <option key="False" value="False">No</option>
+                                                                        <option key="True" value="True">Yes</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
                                                         {hideLoading ?
                                                             <div className="col-sm-12 w-25">
@@ -651,7 +867,8 @@ class RestShellApp extends Component<any, any> {
                                                                     Loading...
                                                                 </button>
                                                             </div>
-                                                            : ""}
+                                                            : ""
+                                                        }
 
                                                         <div className="row">
                                                             <div className="col-sm-12">
@@ -668,7 +885,15 @@ class RestShellApp extends Component<any, any> {
                                                     </form>
                                                 </div>
                                             </div>
-                                            : ""
+                                            : this.state.action == EDIT_NODE ?
+                                                <div className="card-body">
+                                                    <EditNode reloadHome={this.reloadHome} saveNode={this.saveNode} addLogInfo={this.addLogInfo} deleteLogInfo={this.deleteLogInfo} node={this.state.node} />
+                                                </div>
+                                                : this.state.action == CREATE_NODE ?
+                                                    <div className="card-body">
+                                                        <CreateNode reloadHome={this.reloadHome} />
+                                                    </div>
+                                                    : ""
                                 }
 
                             </div>

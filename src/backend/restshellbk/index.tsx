@@ -84,22 +84,64 @@ const doLogout = async () => {
 
 const getServices = () => {
   return api.get(
-    `${backendBaseUrl}/services/all`
+    `${backendBaseUrl}/rsc/api/services/all`
   );
 };
 
+const getNodes = () => {
+  return api.get(
+    `${backendBaseUrl}/rsc/api/nodes/all`
+  );
+};
+
+const getNode = (name:any) => {
+  return api.get(
+    `${backendBaseUrl}/rsc/api/nodes/all`
+  );
+};
+
+const createLogInfo = (data: any, nodeId:any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/nodes/${nodeId}/loginfo/add`, data);
+};
+
+const deleteLogInfo = (data: any, nodeId:any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/nodes/${nodeId}/loginfo/delete`, data);
+};
+
+const createNode = (data: any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/nodes/create`, data);
+};
+
+const updateNode = (data: any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/nodes/update`, data);
+};
+
 const updateService = (data: any) => {
-  return api.post(`${backendBaseUrl}/services/update`, data);
+  return api.post(`${backendBaseUrl}/rsc/api/services/update`, data);
+};
+
+const updateLogInfo = (data: any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/loginfo/update`, data);
+};
+
+const deleteNodeInfo = (data: any, serviceId:any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/services/${serviceId}/nodeinfo/delete`, data);
+};
+
+const addNodeInfo = (data: any, serviceId:any) => {
+  return api.post(`${backendBaseUrl}/rsc/api/services/${serviceId}/nodeinfo/add`, data);
 };
 
 const createService = (data: any) => {
-  return api.post(`${backendBaseUrl}/services/create`, data);
+  return api.post(`${backendBaseUrl}/rsc/api/services/create`, data);
 };
 
 const search = (host: any, data: any) => {
-  return api.post(`http://${host}/search`, data);
+  return api.post(`http://${host}/rsc/api/search`, data);
 };
 
 
 
-export { doLogin, isLoggedIn, doLogout, getServices, updateService, createService, search };
+export { doLogin, isLoggedIn, doLogout, getServices, updateService, createService, search,
+  getNodes, updateNode, createLogInfo, deleteLogInfo, createNode, deleteNodeInfo, addNodeInfo,
+  updateLogInfo };
